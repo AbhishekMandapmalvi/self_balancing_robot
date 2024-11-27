@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(self_balancing_robot_hardware)
+find_package(catkin REQUIRED)
+catkin_package()
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -204,3 +206,8 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+catkin_install_python(PROGRAMS
+  scripts/serial_handler.py
+  scripts/hardware_test.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
