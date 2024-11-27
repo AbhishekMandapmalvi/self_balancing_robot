@@ -1,6 +1,10 @@
 #ifndef PINS_CONFIG_H
 #define PINS_CONFIG_H
 
+#include <Arduino.h>
+#include <stdint.h>
+#include <Wire.h>
+
 // Motor Driver Pins
 static const int AIN1 = 7;          // Left motor direction
 static const int PWMA_LEFT = 5;     // Left motor PWM
@@ -34,7 +38,7 @@ static const int I2C_SCL = A5;  // Analog pin 5
 // Constants
 static const uint8_t BNO055_I2C_ADDR = 0x28;  // Default I2C address for BNO055
 
-void initializePins() {
+static void initializePins() {
     // Motor pins
     pinMode(MOTOR_LEFT_DIR, OUTPUT);
     pinMode(MOTOR_LEFT_PWM, OUTPUT);

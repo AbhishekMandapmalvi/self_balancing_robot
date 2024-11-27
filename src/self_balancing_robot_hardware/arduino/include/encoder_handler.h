@@ -1,11 +1,15 @@
 #ifndef ENCODER_HANDLER_H
 #define ENCODER_HANDLER_H
 
+#include <Arduino.h>
+#include <stdint.h>
+#include <Wire.h>
 #include "pins_config.h"
 
 class EncoderHandler {
 private:
     // Encoder counts
+    uint8_t lastRightState;
     volatile long leftCount;
     volatile long rightCount;
     volatile long lastLeftCount;

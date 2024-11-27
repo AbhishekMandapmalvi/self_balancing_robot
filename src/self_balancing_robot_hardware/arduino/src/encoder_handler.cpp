@@ -1,5 +1,6 @@
-#include "encoder_handler.h"
 #include <Arduino.h>
+#include <stdint.h>
+#include "encoder_handler.h"
 
 // Global instance for ISR access
 EncoderHandler* encoderInstance = nullptr;

@@ -1,3 +1,5 @@
+#include <Arduino.h>
+#include <stdint.h>
 #include "motor_controller.h"
 
 MotorController::MotorController() : leftSpeed(0), rightSpeed(0) {}

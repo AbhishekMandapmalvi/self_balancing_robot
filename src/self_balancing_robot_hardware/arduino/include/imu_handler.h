@@ -1,56 +1,74 @@
-#ifndef IMU_HANDLER_H
-#define IMU_HANDLER_H
+#include <Arduino.h>
+#include <stdint.h>
+#include "imu_handler.h"
 
-#include <Wire.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_BNO055.h>
-#include "pins_config.h"
+IMUHandler::IMUHandler() : 
+    bno(55, BNO055_I2C_ADDR),
+    isInitialized(false),
+    lastUpdateTime(0) {
+    memset(&data, 0, sizeof(IMUData));
+}
 
-struct IMUData {
-    // Euler angles (degrees)
-    float roll;
-    float pitch;
-    float yaw;
-    // Angular velocities (rad/s)
-    float gyroX;
-    float gyroY;
-    float gyroZ;
-    // Linear accelerations (m/s^2)
-    float accelX;
-    float accelY;
-    float accelZ;
-    // Calibration status
-    uint8_t systemCal;
-    uint8_t gyroCal;
-    uint8_t accelCal;
-    uint8_t magCal;
-};
-
-class IMUHandler {
-private:
-    Adafruit_BNO055 bno;
-    IMUData data;
-    bool isInitialized;
-    unsigned long lastUpdateTime;
-    const unsigned long UPDATE_INTERVAL = 10; // 100Hz update rate
+bool IMUHandler::init() {
+    if (!bno.begin()) {
+        return false;
+    }
     
-public:
-    IMUHandler();
-    bool init();
-    bool update();
-    bool isCalibrated() const;
-    IMUData getData() const { return data; }
+    delay(1000); // Allow time for sensor to stabilize
+    
+    // Use external crystal for better accuracy
+    bno.setExtCrystalUse(true);
+    
+    // Set to IMU mode (fusion of accelerometer and gyroscope)
+    bno.setMode(OPERATION_MODE_NDOF);
+    
+    isInitialized = true;
+    return true;
+}
 
-    // Individual getters
-    float getRoll() const { return data.roll; }
-    float getPitch() const { return data.pitch; }
-    float getYaw() const { return data.yaw; }
-    float getGyroX() const { return data.gyroX; }
-    float getGyroY() const { return data.gyroY; }
-    float getGyroZ() const { return data.gyroZ; }
-    float getLinearAccelX() const { return data.linearAccelX; }
-    float getLinearAccelY() const { return data.linearAccelY; }
-    float getLinearAccelZ() const { return data.linearAccelZ; }
-};
+bool IMUHandler::update() {
+    if (!isInitialized) return false;
+    
+    unsigned long currentTime = millis();
+    if (currentTime - lastUpdateTime < UPDATE_INTERVAL) {
+        return true; // Not time to update yet
+    }
+    
+    // Get orientation data
+    sensors_event_t event;
+    bno.getEvent(&event);
+    data.yaw = event.orientation.x;
+    data.roll = event.orientation.z;
+    data.pitch = event.orientation.y;
 
-#endif
+    // Get quaternion data
+    imu::Quaternion quat = bno.getQuat();
+    data.qw = quat.w();
+    data.qx = quat.x();
+    data.qy = quat.y();
+    data.qz = quat.z();
+
+    // Get motion data
+    imu::Vector<3> gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+    imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+    
+    data.gyroX = gyro.x();
+    data.gyroY = gyro.y();
+    data.gyroZ = gyro.z();
+    
+    data.accelX = accel.x();
+    data.accelY = accel.y();
+    data.accelZ = accel.z();
+
+    // Get calibration status
+    bno.getCalibration(&data.systemCal, &data.gyroCal, 
+                       &data.accelCal, &data.magCal);
+    
+    lastUpdateTime = currentTime;
+    return true;
+}
+
+bool IMUHandler::isCalibrated() const {
+    return (data.systemCal == 3 && data.gyroCal == 3 && 
+            data.accelCal == 3 && data.magCal == 3);
+}

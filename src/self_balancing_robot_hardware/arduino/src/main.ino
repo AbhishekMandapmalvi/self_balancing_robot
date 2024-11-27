@@ -1,17 +1,24 @@
+#include <Arduino.h>
+#include <stdint.h>
+#include <Wire.h>
 #include <ros.h>
 #include <ros/time.h>
 #include <sensor_msgs/Imu.h>
 #include <std_msgs/Int32.h>
+#include <std_msgs/Int32MultiArray.h>
+#include <Adafruit_BNO055.h>
+
 #include "encoder_handler.h"
 #include "imu_handler.h"
 #include "motor_controller.h"
+#include "pins_config.h"
 
 // ROS node handle
 ros::NodeHandle nh;
 
 // Create objects
 EncoderHandler encoders;
-IMUHandler imu;
+IMUHandler imu_sensor;
 MotorController motors;
 
 // Messages
@@ -26,10 +33,12 @@ ros::Publisher right_encoder_pub("right_encoder", &right_encoder_msg);
 
 // Callback function for motor commands
 void motorCommandCallback(const std_msgs::Int32MultiArray& cmd_msg) {
+    if(cmd_msg.data_length >= 2) {
     // Extract left and right motor speeds
     int leftSpeed = cmd_msg.data[0];
     int rightSpeed = cmd_msg.data[1];
     motors.setMotorSpeeds(leftSpeed, rightSpeed);
+    }
 }
 
 // Subscriber
@@ -55,11 +64,13 @@ void setup() {
     
     // Initialize hardware
     encoders.init();
-    if (!imu.init()) {
+    if (!imu_sensor.init()) {
         // Handle IMU initialization failure
+        Serial.println("BNO055 initialization failed!");
         while(1);
     }
     motors.init();
+    delay(1000); // Allow IMU to stabilize
 }
 
 void loop() {
@@ -68,32 +79,44 @@ void loop() {
     
     // Update sensor readings
     encoders.update();
-    imu.update();
+    imu_sensor.update();
     
     // Publish data every 10ms (100Hz)
     if (current_time - last_publish_time >= 10) {
         // Get IMU data
-        IMUData imu_data = imu.getData();
+        IMUData imu_data = imu_sensor.getData();
         
         // Fill IMU message
         imu_msg.header.stamp = nh.now();
         imu_msg.header.frame_id = "imu_link";
         
-        // Orientation (in quaternion)
-        imu_msg.orientation.x = 0; // Convert from euler to quaternion if needed
-        imu_msg.orientation.y = 0;
-        imu_msg.orientation.z = 0;
-        imu_msg.orientation.w = 1;
-        
+        // Convert Euler angles to quaternion
+        float roll = imu_data.roll * M_PI / 180.0;
+        float pitch = imu_data.pitch * M_PI / 180.0;
+        float yaw = imu_data.yaw * M_PI / 180.0;
+
+        // Calculate quaternion
+        float cy = cos(yaw * 0.5);
+        float sy = sin(yaw * 0.5);
+        float cp = cos(pitch * 0.5);
+        float sp = sin(pitch * 0.5);
+        float cr = cos(roll * 0.5);
+        float sr = sin(roll * 0.5);
+
+        imu_msg.orientation.w = cr * cp * cy + sr * sp * sy;
+        imu_msg.orientation.x = sr * cp * cy - cr * sp * sy;
+        imu_msg.orientation.y = cr * sp * cy + sr * cp * sy;
+        imu_msg.orientation.z = cr * cp * sy - sr * sp * cy;
+
         // Angular velocity
         imu_msg.angular_velocity.x = imu_data.gyroX;
         imu_msg.angular_velocity.y = imu_data.gyroY;
         imu_msg.angular_velocity.z = imu_data.gyroZ;
         
         // Linear acceleration
-        imu_msg.linear_acceleration.x = imu_data.linearAccelX;
-        imu_msg.linear_acceleration.y = imu_data.linearAccelY;
-        imu_msg.linear_acceleration.z = imu_data.linearAccelZ;
+        imu_msg.linear_acceleration.x = imu_data.accelX;
+        imu_msg.linear_acceleration.y = imu_data.accelY;
+        imu_msg.linear_acceleration.z = imu_data.accelZ;
         
         // Encoder data
         left_encoder_msg.data = encoders.getLeftCount();
