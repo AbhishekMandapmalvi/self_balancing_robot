@@ -1,2 +1,3 @@
 # motor command message
-int32[] data  # Array with [left_speed, right_speed]
+# int16 data defined by default
+# Update if left_motor_cmd/right_motor_cmd datatype needs to be changed
