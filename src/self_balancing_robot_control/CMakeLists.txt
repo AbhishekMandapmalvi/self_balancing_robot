@@ -13,7 +13,6 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   message_generation
-  self_balancing_robot_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -71,11 +70,11 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  geometry_msgs
-)
+# generate_messages(
+#   DEPENDENCIES
+#   std_msgs
+#   geometry_msgs
+# )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -107,7 +106,7 @@ generate_messages(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-CATKIN_DEPENDS self_balancing_robot_msgs roscpp rospy std_msgs geometry_msgs  message_runtime
+CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs  message_runtime
 #  INCLUDE_DIRS include
 #  LIBRARIES self_balancing_robot_control
 #  CATKIN_DEPENDS roscpp rospy std_msgs
@@ -210,7 +209,6 @@ include_directories(
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 catkin_install_python(PROGRAMS
-  scripts/balancing_robot_interface.py
-  scripts/motor_control.py
+  scripts/balance_robot_controller.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

@@ -206,8 +206,6 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-catkin_install_python(PROGRAMS
-  scripts/serial_handler.py
-  scripts/hardware_test.py
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+# catkin_install_python(PROGRAMS
+#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+# )
