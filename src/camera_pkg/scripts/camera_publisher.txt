@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+import rospy
+import cv2
+from sensor_msgs.msg import Image, CameraInfo
+from cv_bridge import CvBridge
+from sensor_msgs.srv import SetCameraInfo, SetCameraInfoResponse
+import yaml
+
+def set_camera_info_cb(req):
+    try:
+        # Store the calibration info in a file
+        with open('camera_calibration.yaml', 'w') as f:
+            yaml.dump(req.camera_info.__dict__, f)
+        return SetCameraInfoResponse(True, "Camera info set successfully")
+    except Exception as e:
+        return SetCameraInfoResponse(False, str(e))
+
+def camera_publisher():
+    rospy.init_node('camera_publisher', anonymous=True)
+    
+    # Create publishers
+    pub = rospy.Publisher('/camera_pkg/image_raw', Image, queue_size=10)
+    camera_info_pub = rospy.Publisher('/camera_pkg/camera_info', CameraInfo, queue_size=10)
+    
+    # Create the camera info service
+    srv = rospy.Service('/camera_pkg/set_camera_info', SetCameraInfo, set_camera_info_cb)
+    
+    bridge = CvBridge()
+    cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+    
+    if not cap.isOpened():
+        rospy.logerr("Cannot open camera")
+        exit(1)
+    
+    # Set camera parameters for A4 calibration pattern
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    
+    rate = rospy.Rate(30)
+    
+    # Create and initialize CameraInfo message
+    camera_info_msg = CameraInfo()
+    camera_info_msg.width = 640
+    camera_info_msg.height = 480
+    
+    while not rospy.is_shutdown():
+        ret, frame = cap.read()
+        if ret:
+            msg = bridge.cv2_to_imgmsg(frame, "bgr8")
+            camera_info_msg.header = msg.header
+            pub.publish(msg)
+            camera_info_pub.publish(camera_info_msg)
+        rate.sleep()
+
+if __name__ == '__main__':
+    try:
+        camera_publisher()
+    except rospy.ROSInterruptException:
+        pass

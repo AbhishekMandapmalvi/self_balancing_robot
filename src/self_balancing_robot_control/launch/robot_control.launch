@@ -1,10 +1,10 @@
 <launch>
     <!-- Launch rosserial for Arduino communication -->
     <node name="serial_node" pkg="rosserial_python" type="serial_node.py" output="screen">
-        <param name="port" value="/dev/ttyUSB0"/>
-        <param name="baud" value="57600"/>
+        <param name="port" value="/dev/ttyACM0"/>
+        <param name="baud" value="115200"/>
     </node>
 
     <!-- Launch the balancing robot interface -->
-    <node name="balancing_robot_interface" pkg="self_balancing_control" type="balancing_robot_interface.py" output="screen"/>
+    <node name="balance_robot_controller" pkg="self_balancing_robot_control" type="balance_robot_controller.py" output="screen"/>
 </launch>
