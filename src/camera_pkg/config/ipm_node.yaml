@@ -1,0 +1,4 @@
+camera_frame: "camera_optical_frame"
+ground_frame: "ground_plane"
+height: 1.0
+output_resolution: [640, 480]

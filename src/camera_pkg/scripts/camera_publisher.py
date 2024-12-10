@@ -29,7 +29,8 @@ def camera_publisher():
     camera_info_msg.header.frame_id = "camera"
     camera_info_msg.height = height
     camera_info_msg.width = width
-    
+    camera_info_msg.distortion_model = "plumb_plumb_bobbob"
+
     # Load calibration data
     camera_info_url = rospy.get_param('~camera_info_url', '')
     rospy.loginfo(f"Loading calibration from: {camera_info_url}")
@@ -52,16 +53,20 @@ def camera_publisher():
     while not rospy.is_shutdown():
         ret, frame = cap.read()
         if ret:
+            timestamp = rospy.Time.now()
+            
+            # Publish image
             msg = bridge.cv2_to_imgmsg(frame, "bgr8")
-            msg.header.stamp = rospy.Time.now()
+            msg.header.stamp = timestamp
             msg.header.frame_id = "camera"
             
-            # Update camera_info timestamp
-            camera_info_msg.header.stamp = msg.header.stamp
+            # Update and publish camera info
+            camera_info_msg.header.stamp = timestamp
+            camera_info_msg.header.frame_id = "camera"
             
             pub.publish(msg)
             camera_info_pub.publish(camera_info_msg)
-            
+                        
         rate.sleep()
 
 if __name__ == '__main__':
