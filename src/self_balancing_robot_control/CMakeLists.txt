@@ -210,5 +210,8 @@ include_directories(
 # catkin_add_nosetests(test)
 catkin_install_python(PROGRAMS
   scripts/balance_robot_controller.py
+  scripts/kinematics.py
+  scripts/test_services.py
+  scripts/plotter.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

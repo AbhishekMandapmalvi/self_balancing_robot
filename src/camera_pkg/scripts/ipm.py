@@ -10,7 +10,7 @@ import tf2_ros
 class IPMNode:
     def __init__(self):
         rospy.init_node('ipm_node', anonymous=True)
-        self.image_sub = rospy.Subscriber('/camera/image_rect_color', Image, self.image_callback)
+        self.image_sub = rospy.Subscriber('/camera/image_rect', Image, self.image_callback)
         self.camera_info_sub = rospy.Subscriber('/camera/camera_info', CameraInfo, self.camera_info_callback)
         self.bridge = CvBridge()
         self.tf_buffer = tf2_ros.Buffer()
@@ -35,16 +35,35 @@ class IPMNode:
             return
 
         try:
-            cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            cv_image = self.bridge.imgmsg_to_cv2(msg, "mono8")
             ipm_image = self.apply_ipm(cv_image)
             
             if ipm_image is not None:
-                ipm_msg = self.bridge.cv2_to_imgmsg(ipm_image, "bgr8")
+                # Detect obstacles in the IPM image
+                obstacles = self.detect_obstacles(ipm_image)
+                lines = self.detect_lanes(ipm_image)
+
+                # Draw detected obstacles
+                result_image = cv2.cvtColor(ipm_image, cv2.COLOR_GRAY2BGR)
+                
+                if lines is not None:
+                    for line in lines:
+                        x1, y1, x2, y2 = line[0]
+                        cv2.line(result_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                
+                # Display results
+                cv2.imshow("IPM Image", ipm_image)
+                cv2.imshow("Lane Detection", result_image)
+                cv2.waitKey(1)
+                
+                # Publish the annotated image
+                ipm_msg = self.bridge.cv2_to_imgmsg(result_image, "bgr8")
                 ipm_msg.header = msg.header
                 self.ipm_pub.publish(ipm_msg)
                 
         except Exception as e:
             rospy.logerr(f"Error processing image: {str(e)}")
+
 
     def camera_info_callback(self, msg):
         if self.camera_matrix is None:
@@ -57,6 +76,10 @@ class IPMNode:
             rospy.logwarn("Camera calibration parameters not yet received")
             return None
 
+            # Ensure image is in correct format (uint8)
+        if image.dtype != np.uint8:
+            image = image.astype(np.uint8)
+            
         # Apply Gaussian smoothing to reduce noise
         smoothed_image = cv2.GaussianBlur(image, (5, 5), 0)
 
@@ -65,26 +88,31 @@ class IPMNode:
         roi_start = int(self.image_height * 0)   # Start from 0% down
         roi = smoothed_image[roi_start:self.image_height, :]
 
-        # Enhance contrast using CLAHE (better than standard histogram equalization)
-        lab = cv2.cvtColor(roi, cv2.COLOR_BGR2LAB)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3,3))
-        lab[:,:,0] = clahe.apply(lab[:,:,0])
-        roi_enhanced = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+        # Ensure single channel before CLAHE
+        if len(roi.shape) > 2:
+            roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        
+        # Enhance contrast for grayscale image
+        clahe = cv2.createCLAHE(clipLimit=3.5, tileGridSize=(8,8))
+        roi_enhanced = clahe.apply(roi)
+
+        # Additional contrast enhancement
+        roi_enhanced = cv2.convertScaleAbs(roi_enhanced, alpha=1.3, beta=10)
 
         # Define source points (in ROI coordinates)
         src_points = np.float32([
             [0, roi.shape[0]],                    # Bottom left
             [roi.shape[1], roi.shape[0]],         # Bottom right
-            [roi.shape[1] * 0.3, roi.shape[0] * 0.6],  # Top left
-            [roi.shape[1] * 0.7, roi.shape[0] * 0.6]   # Top right
+            [roi.shape[1] * 0.3, roi.shape[0] * 0.60],  # Top left
+            [roi.shape[1] * 0.7, roi.shape[0] * 0.60]   # Top right
         ])
 
         # Reduce the transformation area in destination points
         dst_points = np.float32([
-            [self.output_resolution[0] * 0.2, self.output_resolution[1]],
-            [self.output_resolution[0] * 0.8, self.output_resolution[1]],
-            [self.output_resolution[0] * 0.2, self.output_resolution[1] * 0.2],
-            [self.output_resolution[0] * 0.8, self.output_resolution[1] * 0.2]
+            [self.output_resolution[0] * 0.4, self.output_resolution[1]],
+            [self.output_resolution[0] * 0.6, self.output_resolution[1]],
+            [self.output_resolution[0] * 0.4, self.output_resolution[1] * 0.5],
+            [self.output_resolution[0] * 0.6, self.output_resolution[1] * 0.5]
         ])
 
         # Calculate perspective transform matrix
@@ -98,35 +126,86 @@ class IPMNode:
             flags=cv2.INTER_LINEAR
         )
 
-        # Add grid overlay for equal areas after transformation
-        transformed_width = int(self.output_resolution[0] * 0.7)  # Using 70% of width (0.85 - 0.15)
-        transformed_height = self.output_resolution[1]
-
-        # Number of desired grid cells (e.g., 10x10 grid)
-        grid_cells = 10
-
-        # Calculate spacing for equal areas
-        grid_spacing_x = int(transformed_width / grid_cells)
-        grid_spacing_y = int(transformed_height / grid_cells)
-
-        # Draw vertical lines with adjusted spacing
-        for i in range(grid_cells + 1):
-            x = int(self.output_resolution[0] * 0.15) + (i * grid_spacing_x)
-            cv2.line(warped, (x, 0), (x, transformed_height), (50, 50, 50), 1)
-
-        # Draw horizontal lines with equal spacing
-        for i in range(grid_cells + 1):
-            y = i * grid_spacing_y
-            cv2.line(warped, 
-                    (int(self.output_resolution[0] * 0.15), y),
-                    (int(self.output_resolution[0] * 0.85), y),
-                    (50, 50, 50), 1)
-
-
         return warped
 
     def __del__(self):
         cv2.destroyAllWindows()
+        cv2.waitKey(1)
+
+    def detect_obstacles(self, warped_image):
+        # Apply adaptive thresholding with THRESH_BINARY instead of THRESH_BINARY_INV
+        binary = cv2.adaptiveThreshold(
+            warped_image,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,  # Changed from THRESH_BINARY_INV
+            11,
+            2
+        )
+        
+        # Apply morphological operations
+        kernel = np.ones((5,5), np.uint8)
+        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+        
+        # Find contours
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        obstacles = []
+        for contour in contours:
+            if cv2.contourArea(contour) > 100:  
+                x, y, w, h = cv2.boundingRect(contour)
+                center_x = x + w/2
+                center_y = y + h/2
+                obstacles.append((center_x, center_y, w, h))
+        
+        return obstacles
+    
+    def detect_lanes(self, warped_image):
+        # Apply Gaussian blur to reduce noise
+        blurred = cv2.GaussianBlur(warped_image, (5, 5), 0)
+        
+        # Use adaptive thresholding with THRESH_BINARY instead of THRESH_BINARY_INV
+        binary = cv2.adaptiveThreshold(
+            blurred,
+            255,
+            cv2.ADAPTIVE_THRESH_MEAN_C,
+            cv2.THRESH_BINARY,  # Changed from THRESH_BINARY_INV
+            21,
+            7
+        )
+        
+        # Create mask for region of interest
+        height, width = binary.shape
+        mask = np.zeros_like(binary)
+        polygon = np.array([
+            [(width * 0.4, height), (width * 0.6, height),
+            (width * 0.6, height * 0.5), (width * 0.4, height * 0.5)]
+        ])
+        cv2.fillPoly(mask, [polygon.astype(np.int32)], 255)
+        
+        # Apply mask
+        masked_binary = cv2.bitwise_and(binary, mask)
+        
+        # Use Hough Transform to detect lines
+        lines = cv2.HoughLinesP(
+            masked_binary, 
+            rho=1,
+            theta=np.pi/180,
+            threshold=50,
+            minLineLength=50,
+            maxLineGap=10
+        )
+        
+        return lines
+
+
+
+    def color_threshold(self, image):
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        lower_white = np.array([0, 0, 200])
+        upper_white = np.array([180, 30, 255])
+        white_mask = cv2.inRange(hsv, lower_white, upper_white)
+        return white_mask
 
 if __name__ == '__main__':
     try:

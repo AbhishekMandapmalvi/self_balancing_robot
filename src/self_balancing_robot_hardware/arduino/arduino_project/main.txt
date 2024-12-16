@@ -1,0 +1,202 @@
+#define USE_ARDUINO_HARDWARE
+
+#include <ros.h>
+#include <ros/time.h>
+#include <std_msgs/Float32MultiArray.h>
+#include <geometry_msgs/Vector3.h>
+#include <std_msgs/Int16.h>
+#include <geometry_msgs/Vector3.h>
+#include <Adafruit_BNO055.h>
+
+#include <Arduino.h>
+#include <stdint.h>
+#include <Wire.h>
+
+#include "encoder_handler.h"
+#include "imu_handler.h"
+#include "motor_controller.h"
+#include "pins_config.h"
+#include "pid_controller.h"
+
+// Define USB and NodeHandle configuration
+typedef ros::NodeHandle_<ArduinoHardware, 25, 25, 1024, 1024> NodeHandle;
+
+// Create a namespace for global variables
+namespace GlobalVars {
+    // ROS node and message handlers
+    struct {
+        ros::NodeHandle* nh;
+        std_msgs::Float32MultiArray robot_state_msg;
+    } ros;
+
+    // Hardware components
+    struct {
+        EncoderHandler* encoders;
+        IMUHandler* imu_sensor;
+        MotorController* motors;
+        PIDController* balancePID;
+    } hardware;
+
+    // Publishers
+        struct {
+        ros::Publisher* robot_state_pub;  // Single publisher
+        ros::Subscriber<std_msgs::Float32MultiArray>* pid_params_sub;
+    } publishers;
+
+    // Timing variables
+    struct {
+        unsigned long last_publish_time;
+        unsigned long last_balance_time;
+        const unsigned long PUBLISH_INTERVAL = 20; // 50Hz
+        const unsigned long BALANCE_INTERVAL = 10;    // 100Hz for balance control
+    } timing;
+
+        // PID constants - adjust these values for your robot
+    struct {
+        const float KP = 0.0;  // Proportional gain
+        const float KI = 0.0;    // Integral gain
+        const float KD = 0.0;   // Derivative gain
+        const float KP_pos = 0.0;   // Proportional Position gain
+        const float KD_pos = 0.0;   // Derivative Position gain
+        const float KI_pos = 0.0;   // Integral Position gain
+    } pid_constants;
+    
+    struct {
+        float balanceOutput = 0;
+        float velocityCorrection = 0;
+        float leftCommand = 0;
+        float rightCommand = 0;
+        const float BALANCE_WEIGHT = 0.6;    // Weight for balance control
+        const float COMMAND_WEIGHT = 0.4;    // Weight for ROS commands
+    } control;
+}
+
+void updateBalance() {
+    // update encoder values to ensure fresh velocity readings
+    GlobalVars::hardware.encoders->update();
+
+    IMUData imu_data = GlobalVars::hardware.imu_sensor->getData();
+    float pitch = imu_data.pitch;
+
+    float currentPosition = (GlobalVars::hardware.encoders->getLeftDistance() + 
+                           GlobalVars::hardware.encoders->getRightDistance()) / 2.0;
+
+    // Compute balance PID output
+    float balancePIDOutput = GlobalVars::hardware.balancePID->compute(pitch, currentPosition);
+    
+    // Get encoder velocities for rotation control
+    float leftVelocity = GlobalVars::hardware.encoders->getLeftVelocity();
+    float rightVelocity = GlobalVars::hardware.encoders->getRightVelocity();
+    float velocityDiff = rightVelocity - leftVelocity;
+
+    // Store PID outputs for mixing with manual commands
+    GlobalVars::control.balanceOutput = balancePIDOutput;
+    GlobalVars::control.velocityCorrection = velocityDiff;
+}
+
+void applyMixedControl() {
+    float leftOutput = (GlobalVars::control.balanceOutput - GlobalVars::control.velocityCorrection) * GlobalVars::control.BALANCE_WEIGHT + 
+                      GlobalVars::control.leftCommand * GlobalVars::control.COMMAND_WEIGHT;
+                      
+    float rightOutput = (GlobalVars::control.balanceOutput + GlobalVars::control.velocityCorrection) * GlobalVars::control.BALANCE_WEIGHT + 
+                       GlobalVars::control.rightCommand * GlobalVars::control.COMMAND_WEIGHT;
+    
+    // Apply mixed output with limits
+    GlobalVars::hardware.motors->setLeftMotorSpeed(constrain(leftOutput, -255, 255));
+    GlobalVars::hardware.motors->setRightMotorSpeed(constrain(rightOutput, -255, 255));
+    Serial.print(" Left Output: "); Serial.print(leftOutput);
+    Serial.print(" Right Output: "); Serial.println(rightOutput);
+
+}
+
+void pidParamsCallback(const std_msgs::Float32MultiArray& pid_msg) {
+    noInterrupts();
+    GlobalVars::hardware.balancePID->setTunings(
+        pid_msg.data[0],  // kp
+        pid_msg.data[1],  // ki
+        pid_msg.data[2],  // kd
+        pid_msg.data[3],  // kp_pos
+        pid_msg.data[4],  // ki_pos
+        pid_msg.data[5]   // kd_pos
+    );
+    interrupts();
+}
+
+void setup() {
+    // Initialize ROS components
+    GlobalVars::ros.nh = new ros::NodeHandle();
+    GlobalVars::ros.nh->getHardware()->setBaud(115200);
+    GlobalVars::ros.nh->initNode();
+    delay(2000);    
+    
+    // Initialize Float32MultiArray with 11 elements
+    GlobalVars::ros.robot_state_msg.data_length = 11;
+    GlobalVars::ros.robot_state_msg.data = (float*)malloc(sizeof(float) * 11);
+    
+    // Initialize publishers and subscribers
+    GlobalVars::publishers.robot_state_pub = new ros::Publisher("robot_state", &GlobalVars::ros.robot_state_msg);
+    GlobalVars::ros.nh->advertise(*GlobalVars::publishers.robot_state_pub);
+    delay(1000);
+
+    GlobalVars::publishers.pid_params_sub = new ros::Subscriber<std_msgs::Float32MultiArray>("pid_params", &pidParamsCallback);
+    GlobalVars::ros.nh->subscribe(*GlobalVars::publishers.pid_params_sub);
+
+    // Initialize hardware components
+    GlobalVars::hardware.encoders = new EncoderHandler();
+    GlobalVars::hardware.imu_sensor = new IMUHandler();
+    GlobalVars::hardware.motors = new MotorController();
+    GlobalVars::hardware.balancePID = new PIDController(
+        GlobalVars::pid_constants.KP,
+        GlobalVars::pid_constants.KI,
+        GlobalVars::pid_constants.KD,
+        GlobalVars::pid_constants.KP_pos,
+        GlobalVars::pid_constants.KI_pos,
+        GlobalVars::pid_constants.KD_pos
+    );
+
+    // Initialize hardware
+    initializePins();
+    GlobalVars::hardware.encoders->init();
+    GlobalVars::hardware.motors->init();
+    GlobalVars::hardware.imu_sensor->init();
+    GlobalVars::hardware.balancePID->init();
+    delay(1000);
+}
+
+void loop() {
+    unsigned long current_time = millis();
+    
+    GlobalVars::hardware.encoders->update();
+    GlobalVars::hardware.imu_sensor->update();
+    
+    Serial.print("left distance");Serial.print(GlobalVars::hardware.encoders->getLeftDistance());
+    Serial.print("right distance");Serial.print(GlobalVars::hardware.encoders->getRightDistance());
+
+    if (current_time - GlobalVars::timing.last_balance_time >= GlobalVars::timing.BALANCE_INTERVAL) {
+        updateBalance();
+        applyMixedControl();
+        GlobalVars::timing.last_balance_time = current_time;
+    }
+    
+    if (current_time - GlobalVars::timing.last_publish_time >= GlobalVars::timing.PUBLISH_INTERVAL) {
+        IMUData imu_data = GlobalVars::hardware.imu_sensor->getData();
+        // Pack all data into Float32MultiArray
+        // [roll, pitch, yaw, gyroX, gyroY, gyroZ, accelX, accelY, accelZ, leftEncoder, rightEncoder]
+        GlobalVars::ros.robot_state_msg.data[0] = imu_data.roll;
+        GlobalVars::ros.robot_state_msg.data[1] = imu_data.pitch;
+        GlobalVars::ros.robot_state_msg.data[2] = imu_data.yaw;
+        GlobalVars::ros.robot_state_msg.data[3] = imu_data.gyroX;
+        GlobalVars::ros.robot_state_msg.data[4] = imu_data.gyroY;
+        GlobalVars::ros.robot_state_msg.data[5] = imu_data.gyroZ;
+        GlobalVars::ros.robot_state_msg.data[6] = imu_data.accelX;
+        GlobalVars::ros.robot_state_msg.data[7] = imu_data.accelY;
+        GlobalVars::ros.robot_state_msg.data[8] = imu_data.accelZ;
+        GlobalVars::ros.robot_state_msg.data[9] = GlobalVars::hardware.encoders->getLeftDistance();
+        GlobalVars::ros.robot_state_msg.data[10] = GlobalVars::hardware.encoders->getRightDistance();
+        
+        GlobalVars::publishers.robot_state_pub->publish(&GlobalVars::ros.robot_state_msg);
+        GlobalVars::timing.last_publish_time = current_time;
+    }
+    
+    GlobalVars::ros.nh->spinOnce();
+}
