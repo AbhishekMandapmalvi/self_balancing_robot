@@ -5,9 +5,13 @@
 #include <stdint.h>
 #include <Wire.h>
 #include "pins_config.h"
+#include "imu_handler.h"
 
 class EncoderHandler {
 private:
+    // References to external components
+    IMUHandler& imu_handler;
+
     // Encoder counts
     volatile long leftCount;
     volatile long rightCount;
@@ -29,6 +33,10 @@ private:
     float leftDistance;  // meters
     float rightDistance; // meters
 
+    // Variables to track pose
+    float x = 0.0, y = 0.0, theta = 0.0;
+    void updatePose(float deltaLeft, float deltaRight, float deltaTime);
+
 public:
     EncoderHandler();
     void init();
@@ -37,6 +45,7 @@ public:
     // Reset functions
     void resetCounts();
     void resetDistances();
+    void resetPose();
     
     // Getters
     long getLeftCount() const { return leftCount; }
@@ -45,6 +54,11 @@ public:
     float getRightVelocity() const { return rightVelocity; }
     float getLeftDistance() const { return leftDistance; }
     float getRightDistance() const { return rightDistance; }
+
+    // Getters for pose data
+    float getX() const { return x; }
+    float getY() const { return y; }
+    float getTheta() const { return theta; }
     
     // Encoder handlers
     void handleLeftEncoder(uint8_t pin);

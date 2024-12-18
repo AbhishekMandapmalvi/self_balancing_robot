@@ -18,6 +18,7 @@ struct IMUData {
     // Motion data
     float gyroX, gyroY, gyroZ;
     float accelX, accelY, accelZ;
+    float quatW, quatX, quatY, quatZ;
     // Calibration status
     uint8_t systemCal, gyroCal, accelCal, magCal;
 };
@@ -45,6 +46,10 @@ public:
     float getYaw() const { return data.yaw; }
     float getPitch() const { return data.pitch; }
     float getRoll() const { return data.roll; }
+    float getquatW() const { return data.quatW; }
+    float getquatX() const { return data.quatX; }
+    float getquatY() const { return data.quatY; }
+    float getquatZ() const { return data.quatZ; }
 };
 
 #endif

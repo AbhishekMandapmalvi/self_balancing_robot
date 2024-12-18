@@ -1,7 +1,7 @@
 #include <Arduino.h>
-#include <EEPROM.h>
 #include <ros.h>
-#include <std_msgs/Float32MultiArray.h>
+#include <nav_msgs/Odometry.h>
+#include <geometry_msgs/Twist.h>
 #include "pins_config.h"
 #include "motor_controller.h"
 #include "pid_controller.h"
@@ -9,13 +9,17 @@
 #include "Ultrasonic.h"
 #include "Rgb.h"
 
-ros::NodeHandle nh;
+//ros::NodeHandle nh;
+#define MAX_SUBSCRIBERS 2
+#define MAX_PUBLISHERS 1
+#define INPUT_SIZE 1024
+#define OUTPUT_SIZE 1024
 
-std_msgs::Float32MultiArray sensor_msg;
-float sensor_data[14];
+// Modify NodeHandle declaration
+ros::NodeHandle_<ArduinoHardware, MAX_SUBSCRIBERS, MAX_PUBLISHERS, INPUT_SIZE, OUTPUT_SIZE> nh;
 
-// Fix 1: Correct publisher declaration
-ros::Publisher sensor_pub("sensor_data", &sensor_msg);
+nav_msgs::Odometry odom_msg;
+geometry_msgs::Twist cmd_vel_msg;
 
 // Global objects
 MotorController motors;
@@ -24,14 +28,17 @@ IMUHandler imu_handler;
 RGB rgb;
 BalanceCar balance_car(motors, encoders, imu_handler);
 
-void cmdCallback(const std_msgs::Float32MultiArray& cmd_msg) {
-    float setting_car_speed = cmd_msg.data[0];
-    float setting_turn_angle = cmd_msg.data[1];
+// Correct publisher declaration
+ros::Publisher odom_pub("odom", &odom_msg);
+
+void cmdCallback(const geometry_msgs::Twist& cmd_msg) {
+    float setting_car_speed = cmd_msg.linear.x;
+    float setting_turn_angle = cmd_msg.angular.z;
     balance_car.setTargetSpeed(setting_car_speed);
     balance_car.setTurnAngle(setting_turn_angle);
 }
 
-ros::Subscriber<std_msgs::Float32MultiArray> cmd_sub("cmd_vel", &cmdCallback);
+ros::Subscriber<geometry_msgs::Twist> cmd_sub("cmd_vel", &cmdCallback);
 
 unsigned long previousBalanceTime = 0;
 const unsigned long balanceInterval = 10;
@@ -39,14 +46,14 @@ unsigned long previousPublishTime = 0;
 const unsigned long publishInterval = 50; // 20Hz for communication
 
 void setup() {
+    nh.getHardware()->setBaud(57600);
     nh.initNode();
-    // Fix 2: Correct advertise call
-    nh.advertise(sensor_pub);
+    nh.advertise(odom_pub);    
     nh.subscribe(cmd_sub);
-    Serial.begin(115200);
-
-    sensor_msg.data = sensor_data;
-    sensor_msg.data_length = 14;
+    
+    // Initialize message headers
+    odom_msg.header.frame_id = "odom";
+    odom_msg.child_frame_id = "base_link";
 
     initializePins();
     rgb.initialize();
@@ -77,23 +84,37 @@ void loop() {
         rgb.blink(100);
         IMUData imu_data = imu_handler.getData();
 
-        sensor_data[0] = imu_data.accelX;
-        sensor_data[1] = imu_data.accelY;
-        sensor_data[2] = imu_data.accelZ;
-        sensor_data[3] = imu_data.gyroX;
-        sensor_data[4] = imu_data.gyroY;
-        sensor_data[5] = imu_data.gyroZ;
-        sensor_data[6] = imu_data.roll;
-        sensor_data[7] = imu_data.pitch;
-        sensor_data[8] = imu_data.yaw;
-        sensor_data[9] = encoders.getLeftVelocity();
-        sensor_data[10] = encoders.getRightVelocity();
-        sensor_data[11] = encoders.getLeftDistance();
-        sensor_data[12] = encoders.getRightDistance();
-        sensor_data[13] = getDistance();
+        // Set header timestamp
+        odom_msg.header.stamp = nh.now();
+        
+        // Angular velocities (from IMU)
+        odom_msg.twist.twist.angular.x = imu_data.gyroX;
+        odom_msg.twist.twist.angular.y = imu_data.gyroY;
+        odom_msg.twist.twist.angular.z = imu_data.gyroZ;
 
+        odom_msg.pose.pose.orientation.x = imu_data.quatX;
+        odom_msg.pose.pose.orientation.y = imu_data.quatY;
+        odom_msg.pose.pose.orientation.z = imu_data.quatZ;
+        odom_msg.pose.pose.orientation.w = imu_data.quatW;
+
+        odom_msg.pose.pose.position.x = encoders.getX();
+        odom_msg.pose.pose.position.y = encoders.getY();
+        //odom_msg.pose.pose.position.z = 0;
+
+        odom_msg.twist.twist.linear.x = (encoders.getLeftVelocity() + encoders.getRightVelocity()) / 2.0;
+        //odom_msg.twist.twist.linear.y = 0.0;
+        //odom_msg.twist.twist.linear.z = 0.0;
+        
+        // Set covariance matrices for sensor fusion
+        // Position covariance
+        // Clear pose covariance matrix
+        memset(odom_msg.pose.covariance, 0, sizeof(odom_msg.pose.covariance));
+
+        // Clear twist covariance matrix
+        memset(odom_msg.twist.covariance, 0, sizeof(odom_msg.twist.covariance));
+        
         // Correct publish call
-        sensor_pub.publish(&sensor_msg);
+        odom_pub.publish(&odom_msg);
         voltageMeasure();
         nh.spinOnce();
     }

@@ -50,7 +50,24 @@ bool IMUHandler::update() {
     data.accelX = accel.x();
     data.accelY = accel.y();
     data.accelZ = accel.z();
-    
+
+    // Get quaternion data
+    imu::Quaternion quat = bno.getQuat();
+    data.quatW = quat.w();
+    data.quatX = quat.x();
+    data.quatY = quat.y();
+    data.quatZ = quat.z();
+
+    float norm = sqrt(data.quatW * data.quatW + 
+                  data.quatX * data.quatX + 
+                  data.quatY * data.quatY + 
+                  data.quatZ * data.quatZ);
+
+    data.quatW /= norm;
+    data.quatX /= norm;
+    data.quatY /= norm;
+    data.quatZ /= norm;
+   
     lastUpdateTime = currentTime;
     return true;
 }
