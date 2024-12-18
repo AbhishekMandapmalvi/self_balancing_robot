@@ -1,0 +1,12 @@
+<launch>
+  <!-- Load URDF -->
+  <param name="robot_description" command="$(find xacro)/xacro $(find self_balancing_robot_description)/urdf/robot.urdf"/>
+
+  <!-- State Publishers -->
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" output="screen"/>
+
+  <node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" output="screen"/>
+
+  <!-- RViz -->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find self_balancing_robot_description)/rviz/robot.rviz"/>
+</launch>

@@ -2,12 +2,12 @@
     <!-- Launch rosserial for Arduino communication -->
     <node name="serial_node_arduino" pkg="rosserial_python" type="serial_node.py" output="screen">
         <param name="port" value="/dev/ttyACM0"/>
-        <param name="baud" value="115200"/>
+        <param name="baud" value="57600"/>
     </node>
 
     <!-- Launch the balancing robot interface -->
     <node name="balance_robot_controller_main" pkg="self_balancing_robot_control" type="balance_robot_controller.py" output="screen"/>
     <!--node name="kinematics_controller" pkg="self_balancing_robot_control" type="kinematics.py" output="screen"/-->
     <!--node name="simple_controller" pkg="self_balancing_robot_control" type="test_services.py" output="screen"/-->
-    <node name="data_listener" pkg="self_balancing_robot_control" type="plotter.py" output="screen"/>
+    <!--node name="data_listener" pkg="self_balancing_robot_control" type="plotter.py" output="screen"/-->
 </launch>

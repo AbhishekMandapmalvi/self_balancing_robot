@@ -4,7 +4,7 @@
 
     <!-- Camera publisher with message filters -->
     <node name="camera_publisher" pkg="camera_pkg" type="camera_publisher.py" output="screen" ns="camera">
-        <param name="camera_info_url" value="file:/root/self_balancing_robot/src/camera_pkg/config/camera_info.yaml"/>
+        <param name="camera_info_url" value="file:/home/arm/self_balancing_robot/src/camera_pkg/config/camera_info.yaml"/>
         <param name="device_id" value="0"/>
         <param name="image_width" value="640"/>
         <param name="image_height" value="480"/>
@@ -30,7 +30,7 @@
         <param name="slop" value="0.1"/>
         <remap from="image_rect" to="image_rect"/>
         <remap from="camera_info" to="camera_info"/>
-        <rosparam command="load" file="/root/self_balancing_robot/src/camera_pkg/config/ipm_node.yaml"/>
+        <rosparam command="load" file="/home/arm/self_balancing_robot/src/camera_pkg/config/ipm_node.yaml"/>
         <param name="camera_frame" value="camera_optical_frame"/>
         <param name="ground_frame" value="ground_plane"/>
         <param name="height" value="1.0"/>

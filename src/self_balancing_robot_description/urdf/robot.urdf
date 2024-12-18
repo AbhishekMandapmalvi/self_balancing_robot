@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<robot name="robot">
+  <!-- Base Link -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <box size="0.2 0.1 0.05"/> <!-- Replace with actual dimensions -->
+      </geometry>
+      <material name="blue"/>
+    </visual>
+  </link>
+
+  <!-- Left Wheel -->
+  <link name="left_wheel">
+    <visual>
+      <geometry>
+        <cylinder length="0.02" radius="0.03"/> <!-- Replace with actual dimensions -->
+      </geometry>
+      <material name="black"/>
+    </visual>
+  </link>
+
+  <!-- Right Wheel -->
+  <link name="right_wheel">
+    <visual>
+      <geometry>
+        <cylinder length="0.02" radius="0.03"/> <!-- Replace with actual dimensions -->
+      </geometry>
+      <material name="black"/>
+    </visual>
+  </link>
+
+  <!-- Joints -->
+  <joint name="left_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="left_wheel"/>
+    <origin xyz="-0.05 0.05 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <joint name="right_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="right_wheel"/>
+    <origin xyz="-0.05 -0.05 0" rpy="0 0 0"/>
+    <axis xyz="0 -1 0"/>
+  </joint>
+</robot>
