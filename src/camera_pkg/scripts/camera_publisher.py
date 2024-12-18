@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import rospy
 import cv2
 from sensor_msgs.msg import Image, CameraInfo
@@ -21,15 +22,15 @@ def camera_publisher():
         exit(1)
     
     # Get parameters
-    width = rospy.get_param('~image_width', 640)
-    height = rospy.get_param('~image_height', 480)
+    width = rospy.get_param('~image_width', 480)
+    height = rospy.get_param('~image_height', 640)
     
     # Initialize camera info message
     camera_info_msg = CameraInfo()
     camera_info_msg.header.frame_id = "camera"
     camera_info_msg.height = height
     camera_info_msg.width = width
-    camera_info_msg.distortion_model = "plumb_plumb_bobbob"
+    camera_info_msg.distortion_model = "plumb_bob"
 
     # Load calibration data
     camera_info_url = rospy.get_param('~camera_info_url', '')
@@ -55,7 +56,7 @@ def camera_publisher():
         if ret:
             timestamp = rospy.Time.now()
             
-            # Publish image
+            # Publish image without rotation
             msg = bridge.cv2_to_imgmsg(frame, "bgr8")
             msg.header.stamp = timestamp
             msg.header.frame_id = "camera"

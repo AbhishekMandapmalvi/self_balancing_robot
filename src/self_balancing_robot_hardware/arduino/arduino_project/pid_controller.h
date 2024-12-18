@@ -27,7 +27,7 @@ private:
     double kp_turn = 1.0, ki_turn = 0.001, kd_turn = 0.001;
 
     // Calibration parameters
-    double angle_zero = 1.0;
+    double angle_zero = 5.20;
     double angular_velocity_zero = 0;
 
     // Control variables
