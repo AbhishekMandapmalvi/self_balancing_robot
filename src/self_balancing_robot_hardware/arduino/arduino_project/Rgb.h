@@ -1,10 +1,3 @@
-/*
- * @Description: In User Settings Edit
- * @Author: your name
- * @Date: 2019-10-08 09:35:07
- * @LastEditTime: 2019-10-10 15:57:17
- * @LastEditors: Please set LastEditors
- */
 #ifndef RGB_H
 #define RGB_H
 #include "Adafruit_NeoPixel.h"
