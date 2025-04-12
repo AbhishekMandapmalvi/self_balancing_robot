@@ -1,6 +1,9 @@
 # Self-Balancing Robot with ROS Integration
 
-Welcome to the **Self-Balancing Robot** project repository! This ongoing project involves building a self-balancing robot equipped with cascaded PID controllers for stability, real-time control using Arduino Mega, and advanced ROS-based tasks managed by a Raspberry Pi. The robot is designed to balance itself using IMU data from the BNO055 sensor and navigate autonomously using camera perception, path planning, and navigation.
+Welcome to the **Self-Balancing Robot** project repository! This ongoing project involves building a self-balancing robot equipped with cascaded PID controllers for stability, real-time control using Arduino Mega, and advanced ROS-based tasks managed by a Raspberry Pi. The robot balances itself by fusing encoder and IMU data from the BNO055 sensor and navigates autonomously using camera perception, path planning, and navigation. **This project will eventually integrate with [ABC](https://github.com/your-username/ABC)**, a companion repository implementing a unicycle kinematic model for dynamic obstacle avoidance, enabling advanced maneuvers in complex environments.
+
+
+https://github.com/user-attachments/assets/2c6ad56e-2e7e-4330-a570-75c188bcdd77
 
 ---
 
@@ -27,10 +30,11 @@ Welcome to the **Self-Balancing Robot** project repository! This ongoing project
 
 ### Microcontrollers
 - **Arduino Mega 2560**: Handles real-time control tasks such as motor control, PID computation, and IMU data processing.
-- **Raspberry Pi (Model 3/4)**: Manages ROS-based tasks including camera processing and navigation.
+- **Raspberry Pi 4B 8GB**: Manages ROS-based tasks including camera processing and navigation.
 
 ### Sensors
 - **Adafruit BNO055 IMU Sensor**: Provides accurate orientation (pitch, roll, yaw), gyroscope, accelerometer, and quaternion data for balancing.
+- **Encoders**: Provides precise position and velocity.
 
 ### Actuators
 - **DC Motors with Encoders**: Controlled via PWM signals from Arduino for precise movement.
@@ -38,7 +42,7 @@ Welcome to the **Self-Balancing Robot** project repository! This ongoing project
 ### Other Components
 - **RGB LEDs**: Indicate system status such as calibration levels.
 - **Ultrasonic Sensors**: Optional for obstacle detection.
-- **Camera Module**: Used for vision-based navigation.
+- **Camera Module**: 5MP OV5647 used for vision-based navigation.
 
 ---
 
