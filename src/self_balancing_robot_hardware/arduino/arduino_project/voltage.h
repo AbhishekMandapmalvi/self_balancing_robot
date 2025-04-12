@@ -11,10 +11,5 @@ void voltageMeasure()
   {
     vol_measure_time = millis();
     double voltage = (analogRead(VOL_MEASURE_PIN) * 1.1 / 1024) * ((10 + 1.5) / 1.5);
-    
-    // Add these lines to print voltage
-    //Serial.print("Voltage: ");
-    //Serial.print(voltage);
-    //Serial.println(" V");
   }
 }
