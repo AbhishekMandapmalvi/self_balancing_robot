@@ -26,22 +26,6 @@ void MotorController::setRightMotorSpeed(int16_t speed) {
     analogWrite(MOTOR_RIGHT_PWM, abs(speed));
 }
 
-//void MotorController::setMotorSpeeds(int left, int right) {
-//    // Constrain speeds
-//    left = constrain(left, -255, 255);
-//    right = constrain(right, -255, 255);
-//    
-//    // Left motor
-//    digitalWrite(MOTOR_LEFT_DIR, left >= 0 ? HIGH : LOW);
-//    analogWrite(MOTOR_LEFT_PWM, abs(left));
-//    leftSpeed = left;
-//    
-//    // Right motor
-//    digitalWrite(MOTOR_RIGHT_DIR, right >= 0 ? HIGH : LOW);
-//    analogWrite(MOTOR_RIGHT_PWM, abs(right));
-//    rightSpeed = right;
-//}
-
 void MotorController::brake() {
     setLeftMotorSpeed(0);
     setRightMotorSpeed(0);
