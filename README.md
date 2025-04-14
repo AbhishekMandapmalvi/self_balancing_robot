@@ -10,7 +10,7 @@ https://github.com/user-attachments/assets/2c6ad56e-2e7e-4330-a570-75c188bcdd77
 ## Features
 
 ### 1. Self-Balancing Mechanism
-- Implemented **cascaded PID controllers** to achieve precise balance control.
+- Implemented **three cascaded PID controllers** to achieve precise balance control.
 - Real-time control tasks are handled by an **Arduino Mega** to ensure no delays in balancing.
 - IMU readings (pitch, yaw, roll, and motion data) are provided by the **BNO055 sensor**.
 
@@ -54,6 +54,69 @@ The Arduino handles:
 - Reading IMU data from the BNO055 sensor.
 - Motor control using PWM signals.
 - Publishing encoder data (`odom`) to ROS topics.
+
+### Cascaded PID Control for Self-Balancing Robot  
+
+This module explains the **three cascaded PID controllers** used in a self-balancing robot to maintain stability, regulate speed, and manage rotation. The system employs a hierarchical control architecture where each controller’s output influences the next, enabling precise balancing and motion control.  
+
+#### Overview  
+The robot relies on a layered control system:  
+1. **Balance Controller**: Keeps the robot from falling.  
+2. **Speed Controller**: Maintains steady movement.  
+3. **Rotation Controller**: Enables smooth turns.  
+
+#### Key Components  
+- **Sensors**:  
+  - **IMU** (measures tilt angle and rotation speed).  
+  - **Wheel Encoders** (track speed).  
+- **Motors**: Adjust wheel speed to balance and move.  
+
+#### How It Works  
+
+##### 1. Balance Controller ("Don’t Fall Over")  
+- **Job**: Keep the robot upright.  
+- **How**:  
+  - Constantly checks the robot’s **tilt angle** (e.g., leaning forward/backward).  
+  - If leaning forward, spins wheels backward to correct. If leaning backward, spins wheels forward.  
+  - Uses **tilt speed** (from gyroscope) to predict and smooth wobbles.  
+
+##### 2. Speed Controller ("Steady Speed")  
+- **Job**: Maintain a set speed (e.g., move forward at 0.5 m/s).  
+- **How**:  
+  - Compares actual speed (from wheel encoders) to target speed.  
+  - If too slow, gently tips the robot forward to speed up. If too fast, tips backward to slow down.  
+  - Adjusts the **balance controller’s target angle** to create motion.  
+
+##### 3. Rotation Controller ("Smooth Turn")  
+- **Job**: Turn left/right without losing balance.  
+- **How**:  
+  - Measures the robot’s **direction** (using IMU’s yaw angle).  
+  - To turn left, slows the left wheel and speeds up the right wheel (and vice versa).  
+  - Ensures turns don’t disrupt balance.
+  - 
+#### How They Work Together  
+1. **Balance is Priority**:  
+   - The balance controller runs **50–100 times per second** to prevent falls.  
+   - Speed and rotation controllers run slower (**~10 times per second**).  
+
+2. **Example: Moving Forward**  
+   - The speed controller tips the robot slightly forward.  
+   - The balance controller detects the tilt and drives the wheels to "catch" the robot, creating forward motion.  
+
+3. **Example: Turning While Moving**  
+   - The rotation controller adds a small speed difference between wheels.  
+   - The balance controller keeps the robot upright during the turn.  
+
+#### Tuning Order  
+1. **Balance First**: Tune to keep the robot stable.  
+2. **Speed Next**: Adjust to maintain steady motion.  
+3. **Rotation Last**: Fine-tune for smooth turns.
+   
+#### Safety Features  
+- **Emergency Brake**: Stops motors if the tilt exceeds safe limits.  
+- **Dead Zone**: Ignores tiny motor adjustments to prevent jitter.  
+
+This cascaded system ensures the robot balances, moves, and turns smoothly—like riding a bike! 🚴♂️ 
 
 ### Raspberry Pi with ROS
 The Raspberry Pi manages:
