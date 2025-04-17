@@ -27,6 +27,7 @@ https://github.com/user-attachments/assets/2c6ad56e-2e7e-4330-a570-75c188bcdd77
 ---
 
 ## Hardware Components
+![HardwareArchitecture](https://github.com/user-attachments/assets/ec29643a-c434-4a69-9cc2-6997e8ace3db)
 
 ### Microcontrollers
 - **Arduino Mega 2560**: Handles real-time control tasks such as motor control, PID computation, and IMU data processing.
